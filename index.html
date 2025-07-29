@@ -1,57 +1,298 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Slideshow</title>
-  <style>
-    body,html{margin:0;padding:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center}
-    .slideshow{position:relative;width:90%;max-width:900px;height:60vh;overflow:hidden}
-    .slideshow img{position:absolute;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1s}
-    .slideshow img.active{opacity:1}
-    .controls{position:absolute;top:50%;width:100%;display:flex;justify-content:space-between;transform:translateY(-50%)}
-    .controls button{background:rgba(0,0,0,0.5);border:none;color:#fff;padding:12px 18px;font-size:1rem;cursor:pointer}
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Slideshow</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        :root {
+            --ui-bg: rgba(0, 0, 0, .6);
+            --ui-pad: .5rem;
+            --ui-radius: .5rem
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif
+        }
+
+        .viewer {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            place-items: center
+        }
+
+        .viewer img {
+            max-width: 100vw;
+            max-height: 100vh;
+            display: block
+        }
+
+        .overlay {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 5.5rem;
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            background: var(--ui-bg);
+            padding: var(--ui-pad) .75rem;
+            border-radius: var(--ui-radius);
+            backdrop-filter: saturate(140%) blur(4px)
+        }
+
+        #counter {
+            opacity: .9
+        }
+
+        #caption {
+            max-width: min(80vw, 960px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .controls {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 1rem;
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            background: var(--ui-bg);
+            padding: .5rem;
+            border-radius: var(--ui-radius);
+            backdrop-filter: saturate(140%) blur(4px)
+        }
+
+        .controls button {
+            appearance: none;
+            border: 0;
+            background: #fff;
+            color: #000;
+            border-radius: .35rem;
+            padding: .5rem .75rem;
+            font-weight: 600;
+            cursor: pointer
+        }
+
+        .controls button[aria-pressed="true"] {
+            outline: 2px solid #fff;
+            background: #000;
+            color: #fff
+        }
+
+        .controls input[type="number"] {
+            width: 6rem;
+            padding: .45rem .5rem;
+            border-radius: .35rem;
+            border: 0
+        }
+
+        #thumbs {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: .75rem;
+            display: flex;
+            gap: .5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 0 .75rem
+        }
+
+        #thumbs .thumb {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+            outline-offset: 2px
+        }
+
+        #thumbs .thumb img {
+            height: 56px;
+            max-width: 100px;
+            object-fit: contain;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: .35rem;
+            padding: .25rem
+        }
+
+        .message {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 2rem;
+            text-align: center
+        }
+
+        .hidden {
+            display: none
+        }
+
+        @media (max-width:640px) {
+            .overlay {
+                bottom: 6.5rem
+            }
+
+            #thumbs .thumb img {
+                height: 44px;
+                max-width: 80px
+            }
+        }
+    </style>
 </head>
+
 <body>
-  <div class="slideshow"></div>
-  <div class="controls">
-    <button id="prev">Prev</button>
-    <button id="next">Next</button>
-  </div>
-  <script>
-    (async ()=>{
-      const url = location.pathname.replace(/\/?$/, '/');
-      const res = await fetch(url);
-      const html = await res.text();
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const images = [...doc.querySelectorAll('a')]
-        .map(a=>a.getAttribute('href'))
-        .filter(h=>/\.(jpe?g|png|gif|webp)$/i.test(h))
-        .map(h=>new URL(h, location.href).href);
-      const container = document.querySelector('.slideshow');
-      if (images.length === 0) {
-        container.textContent = 'No images found';
-        document.querySelector('.controls').style.display = 'none';
-        return;
-      }
-      images.forEach(src=>{
-        const img = new Image();
-        img.src = src;
-        container.appendChild(img);
-      });
-      const slides = container.querySelectorAll('img');
-      let idx = 0;
-      slides[idx].classList.add('active');
-      const show = n => {
-        slides[idx].classList.remove('active');
-        idx = (n + slides.length) % slides.length;
-        slides[idx].classList.add('active');
-      };
-      document.getElementById('next').onclick = ()=> show(idx + 1);
-      document.getElementById('prev').onclick = ()=> show(idx - 1);
-      setInterval(()=> show(idx + 1), 5000);
-    })();
-  </script>
+    <div id="thumbs"></div>
+    <div class="viewer">
+        <img id="slide" alt="">
+    </div>
+    <div class="overlay">
+        <span id="counter"></span>
+        <span aria-hidden="true">•</span>
+        <span id="caption"></span>
+    </div>
+    <div class="controls">
+        <button id="prev" type="button">Prev</button>
+        <button id="play" type="button" aria-pressed="false">Play</button>
+        <button id="next" type="button">Next</button>
+        <label for="speed">ms</label>
+        <input id="speed" type="number" min="500" step="100" value="3000" inputmode="numeric">
+    </div>
+    <div id="msg" class="message hidden"></div>
+    <script>
+        (() => {
+            "use strict";
+            const fileList = ["yelltalk.png", "checkbox.png", "dark_vignette.png", "index.html", "invslotblocked.png", "invslotfree.png", "lilia.png", "locked.png", "normaltalk.png", "notalk.png", "settings.png", "unchecked.png", "unlocked.png", "vignette.png", "whispertalk.png"];
+            const images = fileList.filter(n => /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(n)).sort((a, b) => a.localeCompare(b));
+            const slide = document.getElementById("slide");
+            const caption = document.getElementById("caption");
+            const counter = document.getElementById("counter");
+            const prev = document.getElementById("prev");
+            const next = document.getElementById("next");
+            const play = document.getElementById("play");
+            const speed = document.getElementById("speed");
+            const thumbs = document.getElementById("thumbs");
+            const msg = document.getElementById("msg");
+            if (images.length === 0) {
+                msg.textContent = "No images found in this folder.";
+                msg.classList.remove("hidden");
+                document.querySelector(".overlay").classList.add("hidden");
+                document.querySelector(".controls").classList.add("hidden");
+                return;
+            }
+            let i = 0;
+            const p = new URLSearchParams(location.search);
+            const qi = p.get("i");
+            if (qi !== null) {
+                const t = parseInt(qi, 10);
+                if (!Number.isNaN(t) && t >= 0 && t < images.length) i = t;
+            }
+            const qn = p.get("name");
+            if (qn) {
+                const j = images.indexOf(qn);
+                if (j !== -1) i = j;
+            }
+            let timer = null;
+            const failed = new Set();
+            function preload(k) {
+                const a = [(k + 1) % images.length, (k - 1 + images.length) % images.length];
+                for (const x of a) { const im = new Image(); im.src = images[x]; }
+            }
+            function setHash() {
+                history.replaceState(null, "", `?i=${i}&name=${encodeURIComponent(images[i])}`);
+            }
+            function render() {
+                slide.src = images[i];
+                slide.alt = images[i];
+                caption.textContent = images[i];
+                counter.textContent = `${i + 1}/${images.length}`;
+                setHash();
+                preload(i);
+                Array.from(thumbs.children).forEach((b, idx) => b.style.outline = idx === i ? "2px solid #fff" : "none");
+            }
+            function nextImg() {
+                i = (i + 1) % images.length;
+                render();
+            }
+            function prevImg() {
+                i = (i - 1 + images.length) % images.length;
+                render();
+            }
+            function playStart() {
+                if (timer) return;
+                play.setAttribute("aria-pressed", "true");
+                timer = setInterval(nextImg, Math.max(500, parseInt(speed.value, 10) || 3000));
+            }
+            function playStop() {
+                if (!timer) return;
+                play.setAttribute("aria-pressed", "false");
+                clearInterval(timer);
+                timer = null;
+            }
+            function playToggle() {
+                if (timer) playStop(); else playStart();
+            }
+            slide.addEventListener("click", nextImg);
+            prev.addEventListener("click", prevImg);
+            next.addEventListener("click", nextImg);
+            play.addEventListener("click", playToggle);
+            speed.addEventListener("change", () => { if (timer) { playStop(); playStart(); } });
+            window.addEventListener("keydown", e => {
+                if (e.target instanceof HTMLInputElement) return;
+                if (e.key === "ArrowRight") nextImg();
+                else if (e.key === "ArrowLeft") prevImg();
+                else if (e.key === " ") { e.preventDefault(); playToggle(); }
+                else if (e.key.toLowerCase() === "f") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); }
+            });
+            slide.addEventListener("error", () => {
+                failed.add(images[i]);
+                const idx = i;
+                images.splice(i, 1);
+                if (images.length === 0) {
+                    msg.textContent = "All images failed to load.";
+                    msg.classList.remove("hidden");
+                    document.querySelector(".overlay").classList.add("hidden");
+                    document.querySelector(".controls").classList.add("hidden");
+                    slide.classList.add("hidden");
+                    return;
+                }
+                i = idx % images.length;
+                render();
+            });
+            for (let x = 0; x < images.length; x++) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.className = "thumb";
+                const t = document.createElement("img");
+                t.src = images[x];
+                t.alt = images[x];
+                b.title = images[x];
+                b.addEventListener("click", () => { i = x; render(); });
+                b.appendChild(t);
+                thumbs.appendChild(b);
+            }
+            render();
+        })();
+    </script>
 </body>
+
 </html>
